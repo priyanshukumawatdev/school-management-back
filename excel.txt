@@ -1,0 +1,52 @@
+| scholarNo | schoolCode | name         | fatherName    | motherName  | dob        | className | session | subject | maxMarks | minMarks | quarterly | halfYearly | annually | total | grandTotal | overallPercentage | division | grade | result |
+| --------- | ---------- | ------------ | ------------- | ----------- | ---------- | --------- | ------- | ------- | -------- | -------- | --------- | ---------- | -------- | ----- | ---------- | ----------------- | -------- | ----- | ------ |
+| 101       | SC001      | Rahul Sharma | Ramesh Sharma | Sita Sharma | 2010-05-15 | 10        | 2024-25 | Maths   | 100      | 33       | 25        | 30         | 35       | 90    | 170        | 85                | First    | A     | Pass   |
+| 101       | SC001      | Rahul Sharma | Ramesh Sharma | Sita Sharma | 2010-05-15 | 10        | 2024-25 | Science | 100      | 33       | 20        | 28         | 32       | 80    | 170        | 85                | First    | A     | Pass   |
+
+
+//Download Excel api responce
+
+{
+  "success": true,
+  "total": 1,
+  "data": [
+    {
+      "_id": "65f1a8d2f34abc123",
+      "scholarNo": "101",
+      "schoolCode": "SC001",
+      "name": "Rahul Sharma",
+      "fatherName": "Ramesh Sharma",
+      "motherName": "Sita Sharma",
+      "dob": "2010-05-15T00:00:00.000Z",
+      "className": "10",
+      "session": "2024-25",
+      "subjects": [
+        {
+          "subjectName": "Maths",
+          "maxMarks": 100,
+          "minMarks": 33,
+          "quarterly": 25,
+          "halfYearly": 30,
+          "annually": 35,
+          "total": 90
+        },
+        {
+          "subjectName": "Science",
+          "maxMarks": 100,
+          "minMarks": 33,
+          "quarterly": 20,
+          "halfYearly": 28,
+          "annually": 32,
+          "total": 80
+        }
+      ],
+      "grandTotal": 170,
+      "overallPercentage": 85,
+      "division": "First",
+      "grade": "A",
+      "result": "Pass",
+      "createdAt": "2026-02-18T10:00:00.000Z",
+      "updatedAt": "2026-02-18T10:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+//Excel file must have this col ye data send krega when admin upload excel file 
+
+🟢 1️⃣ Kuch fields Excel se aayengi (Manual Input)
+scholarNo
+
+schoolCode
+
+name
+
+fatherName
+
+motherName
+
+dob
+
+className
+
+session
+
+subjects
+
+maxMarks
+
+minMarks
+
+quarterly
+
+halfYearly
+
+annually
+
+🟡 2️⃣ Kuch fields Excel se nahi aayengi ye backend se calculate hogi 
+
+total (subject wise)
+
+grandTotal
+
+overallPercentage
+
+division
+
+grade
+
+result
