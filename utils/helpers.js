@@ -21,13 +21,17 @@ export const calculateResult = (subjects) => {
   let hasFailedSubject = false;
 
   subjects.forEach((sub) => {
-    grandTotal += sub.total;
-    totalMaxMarks += sub.maxMarks;
-    if (sub.total < sub.minMarks) hasFailedSubject = true;
+    const annual = Number(sub.annually) || 0;   // use only annual marks
+    const max = Number(sub.maxMarks) || 0;       // max marks for the exam
+    const min = Number(sub.minMarks) || 0;
+
+    grandTotal += annual;
+    totalMaxMarks += max;
+
+    if (annual < min) hasFailedSubject = true;
   });
 
-  const percentage =
-    totalMaxMarks > 0 ? (grandTotal / totalMaxMarks) * 100 : 0;
+  const percentage = totalMaxMarks > 0 ? (grandTotal / totalMaxMarks) * 100 : 0;
 
   let division = "Fail";
   let grade = "D";
@@ -54,4 +58,3 @@ export const calculateResult = (subjects) => {
     result,
   };
 };
-

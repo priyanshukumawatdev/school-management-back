@@ -3,6 +3,9 @@ const mongoose = require("mongoose");
 const Student = require("../../models/student/Student");
 const Subject = require("../../models/student/Subject");
 const { calculateResult } = require("../../utils/helpers");
+const puppeteer = require("puppeteer");
+const generateHTML = require("../../utils/marksheetTemplate");
+
 
 const prepareSubjects = (subjects, studentId) => {
   const subjectDataForResult = [];
@@ -39,13 +42,13 @@ exports.createStudent = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { scholarNo, schoolCode, name, fatherName, motherName, dob, className, session: academicSession, subjects = [] } = req.body;
+    const { scholarNo, name, fatherName, motherName, dob, className, sessionStart,sessionEnd, subjects = [] } = req.body;
 
     if (await Student.findOne({ scholarNo })) {
       return res.status(400).json({ success: false, message: "Scholar number already exists" });
     }
 
-    const [student] = await Student.create([{ scholarNo, schoolCode, name, fatherName, motherName, dob, className, session: academicSession }], { session });
+    const [student] = await Student.create([{ scholarNo, name, fatherName, motherName, dob, className, sessionStart,sessionEnd}], { session });
 
     let subjectIds = [];
     if (subjects.length) {
@@ -114,7 +117,7 @@ exports.viewStudent = async (req, res) => {
       { $match: { _id: new mongoose.Types.ObjectId(studentId) } },
       {
         $lookup: {
-          from: "subjects", 
+          from: "subjects",
           localField: "_id",
           foreignField: "student",
           as: "subjects",
@@ -157,7 +160,7 @@ exports.studentList = async (req, res) => {
     const students = resultData[0].data;
     const total = resultData[0].totalCount[0]?.count || 0;
 
-    res.json({ success: true,  data: students ,pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+    res.json({ success: true, data: students, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to fetch students" });
@@ -184,40 +187,76 @@ exports.deleteStudent = async (req, res) => {
 };
 
 exports.uploadExcel = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     if (!req.file) throw new Error("No file uploaded");
 
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+    const rows = XLSX.utils.sheet_to_json(
+      workbook.Sheets[workbook.SheetNames[0]]
+    );
+
     if (!rows.length) throw new Error("Excel file is empty");
 
     const groupedStudents = {};
+
     rows.forEach((row) => {
       const scholarNo = row.scholarNo;
-      if (!groupedStudents[scholarNo]) groupedStudents[scholarNo] = { ...row, dob: new Date(row.dob), subjects: [] };
-      const quarterly = Number(row.quarterly || 0), halfYearly = Number(row.halfYearly || 0), annually = Number(row.annually || 0);
-      groupedStudents[scholarNo].subjects.push({ subjectName: row.subject, maxMarks: Number(row.maxMarks), minMarks: Number(row.minMarks), quarterly, halfYearly, annually, total: quarterly + halfYearly + annually });
+
+      if (!groupedStudents[scholarNo])
+        groupedStudents[scholarNo] = {
+          ...row,
+          dob: new Date(row.dob),
+          subjects: [],
+        };
+
+      const quarterly = Number(row.quarterly || 0);
+      const halfYearly = Number(row.halfYearly || 0);
+      const annually = Number(row.annually || 0);
+
+      groupedStudents[scholarNo].subjects.push({
+        subjectName: row.subject,
+        maxMarks: Number(row.maxMarks),
+        minMarks: Number(row.minMarks),
+        quarterly,
+        halfYearly,
+        annually,
+        total: quarterly + halfYearly + annually,
+      });
     });
 
     for (const key in groupedStudents) {
       const data = groupedStudents[key];
-      let student = await Student.findOneAndUpdate({ scholarNo: data.scholarNo }, { ...data }, { upsert: true, new: true, session });
-      await Subject.deleteMany({ student: student._id }, { session });
-      const { subjectDocs, subjectDataForResult } = prepareSubjects(data.subjects, student._id);
-      const createdSubjects = await Subject.insertMany(subjectDocs, { session });
+
+      const { subjects, ...studentData } = data;
+
+      let student = await Student.findOneAndUpdate(
+        { scholarNo: data.scholarNo },
+        studentData,
+        { upsert: true, new: true }
+      );
+
+      await Subject.deleteMany({ student: student._id });
+
+      const { subjectDocs, subjectDataForResult } = prepareSubjects(
+        subjects,
+        student._id
+      );
+
+      const createdSubjects = await Subject.insertMany(subjectDocs);
+
       student.subjects = createdSubjects.map((s) => s._id);
+
       Object.assign(student, calculateResult(subjectDataForResult));
-      await student.save({ session });
+
+      await student.save();
     }
 
-    await session.commitTransaction();
-    session.endSession();
-    res.json({ success: true, message: "Excel uploaded successfully", totalStudents: Object.keys(groupedStudents).length });
+    res.json({
+      success: true,
+      message: "Excel uploaded successfully",
+      totalStudents: Object.keys(groupedStudents).length,
+    });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     console.error(error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -234,7 +273,8 @@ exports.downloadExcel = async (req, res) => {
         "Mother Name": s.motherName,
         "DOB": s.dob ? new Date(s.dob).toLocaleDateString("en-GB") : "",
         "Class": s.className,
-        "Session": s.session,
+        "Session Start": s.sessionStart,
+        "Session End": s.sessionEnd,
         "Subject": sub.subjectName,
         "Max Marks": sub.maxMarks,
         "Min Marks": sub.minMarks,
@@ -261,5 +301,61 @@ exports.downloadExcel = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to download Excel" });
+  }
+};
+
+
+let browser;
+exports.downloadStudentPDF = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const student = await Student.findById(studentId)
+      .populate("subjects")
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    // ✅ Launch browser only once
+    if (!browser) {
+      browser = await puppeteer.launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+    }
+
+    const page = await browser.newPage();
+
+    const html = generateHTML(student);
+
+    await page.setContent(html, {
+      waitUntil: ["load", "networkidle0"],
+    });
+
+
+    const pdfBuffer = await page.pdf({
+      printBackground: true,
+      preferCSSPageSize: true
+    });
+    await page.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=${student.name}_result.pdf`,
+    });
+
+    return res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error("PDF Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate PDF",
+    });
   }
 };

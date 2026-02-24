@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const studentSchema = new mongoose.Schema(
   {
     scholarNo: { type: String, required: true, unique: true },
-    schoolCode: { type: String, required: true },
 
     name: { type: String, required: true },
     dob: { type: Date },
@@ -16,7 +15,8 @@ const studentSchema = new mongoose.Schema(
       },
     ],
 
-    session: String,
+    sessionStart: String,
+    sessionEnd: String,
 
     fatherName: String,
     motherName: String,

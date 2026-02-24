@@ -8,6 +8,7 @@ const {
   updateStudent,
   deleteStudent,
   studentList,
+  downloadStudentPDF
 } = require("../../controllers/student/studenController");
 const { jwtVerify, roleCheck } = require("../../middlewares/auth");
 const  fileExcelUpload  = require("../../middlewares/fileUpload");
@@ -26,8 +27,9 @@ router.post(
 router.get("/downloadExcel", jwtVerify, roleCheck("Admin"), downloadExcel);
 router.post("/create", jwtVerify, roleCheck("Admin"), createStudent);
 router.get("/list", jwtVerify, roleCheck("Admin"), studentList);
-router.get("/:studenId", jwtVerify, roleCheck("Admin"), viewStudent);
-router.patch("/:studenId", jwtVerify, roleCheck("Admin"), updateStudent);
-router.delete("/:studenId", jwtVerify, roleCheck("Admin"), deleteStudent);
+router.get("/:studentId", jwtVerify, roleCheck("Admin"), viewStudent);
+router.patch("/:studentId", jwtVerify, roleCheck("Admin"), updateStudent);
+router.delete("/:studentId", jwtVerify, roleCheck("Admin"), deleteStudent);
+router.get("/pdf/:studentId", jwtVerify, roleCheck("Admin"), downloadStudentPDF);
 
 module.exports = router;
