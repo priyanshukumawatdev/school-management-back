@@ -305,8 +305,66 @@ exports.downloadExcel = async (req, res) => {
 };
 
 
+// let browser;
+// exports.downloadStudentPDF = async (req, res) => {
+//   try {
+//     const { studentId } = req.params;
+
+//     const student = await Student.findById(studentId)
+//       .populate("subjects")
+//       .lean();
+
+//     if (!student) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Student not found",
+//       });
+//     }
+
+//     // ✅ Launch browser only once
+//     if (!browser) {
+//       browser = await puppeteer.launch({
+//         headless: "new",
+//         args: ["--no-sandbox", "--disable-setuid-sandbox"],
+//       });
+//     }
+
+//     const page = await browser.newPage();
+
+//     const html = generateHTML(student);
+
+//     await page.setContent(html, {
+//       waitUntil: ["load", "networkidle0"],
+//     });
+
+
+//     const pdfBuffer = await page.pdf({
+//       printBackground: true,
+//       preferCSSPageSize: true
+//     });
+//     await page.close();
+
+//     res.set({
+//       "Content-Type": "application/pdf",
+//       "Content-Disposition": `attachment; filename=${student.name}_result.pdf`,
+//     });
+
+//     return res.send(pdfBuffer);
+
+//   } catch (error) {
+//     console.error("PDF Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to generate PDF",
+//     });
+//   }
+// };
+
 let browser;
+
 exports.downloadStudentPDF = async (req, res) => {
+  let page;
+
   try {
     const { studentId } = req.params;
 
@@ -321,7 +379,6 @@ exports.downloadStudentPDF = async (req, res) => {
       });
     }
 
-    // ✅ Launch browser only once
     if (!browser) {
       browser = await puppeteer.launch({
         headless: "new",
@@ -329,30 +386,40 @@ exports.downloadStudentPDF = async (req, res) => {
       });
     }
 
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
     const html = generateHTML(student);
 
     await page.setContent(html, {
-      waitUntil: ["load", "networkidle0"],
+      waitUntil: "networkidle0",
     });
-
 
     const pdfBuffer = await page.pdf({
+      format: "A4",            
       printBackground: true,
-      preferCSSPageSize: true
+      margin: {
+        top: "20mm",
+        bottom: "20mm",
+        left: "15mm",
+        right: "15mm",
+      },
     });
+
     await page.close();
 
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename=${student.name}_result.pdf`,
+      "Content-Disposition": `attachment; filename=${student.name.replace(/\s+/g, "_")}_result.pdf`,
+      "Content-Length": pdfBuffer.length,
     });
 
     return res.send(pdfBuffer);
 
   } catch (error) {
     console.error("PDF Error:", error);
+
+    if (page) await page.close();  
+
     return res.status(500).json({
       success: false,
       message: "Failed to generate PDF",
